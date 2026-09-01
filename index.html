@@ -42,6 +42,26 @@
     </style>
 </head>
 <body>
+    <script>
+  // 1. Tự động đọc dữ liệu từ đường link khi mở trên điện thoại
+  window.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tongChiTuUrl = urlParams.get('tongchi');
+    
+    if (tongChiTuUrl) {
+      // Tìm thẻ hiển thị tổng chi để điền số tiền vào
+      const hienThiElement = document.getElementById('tong-chi-display');
+      if (hienThiElement) {
+        hienThiElement.innerText = tongChiTuUrl + 'k';
+      }
+    }
+  });
+
+  // 2. Thêm đoạn này vào cuối hàm bấm nút "Lưu/Nhập" của bạn:
+  // Thay '65' bằng biến chứa số tiền nhập vào
+  // window.history.pushState({}, '', '?tongchi=' + soTienNhap);
+</script>
+</body>
 
 <div class="container">
     <h1>Nhật Ký & Bảng Thu Chi Tự Động</h1>
