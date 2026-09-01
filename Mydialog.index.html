@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nhật Ký & Bảng Thu Chi Tự Động Sắp Xếp</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f0f2f5; padding: 20px; color: #1c1e21; }
+        .container { max-width: 950px; margin: 0 auto; }
+        h1 { text-align: center; margin-bottom: 20px; color: #1877f2; }
+        
+        .summary-card { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .summary-card h2 { margin-bottom: 15px; font-size: 1.2rem; color: #050505; border-bottom: 2px solid #f0f2f5; padding-bottom: 8px; }
+        .stats { display: flex; gap: 15px; margin-bottom: 15px; }
+        .stat-item { flex: 1; padding: 15px; border-radius: 8px; text-align: center; }
+        .stat-income { background: #e6f4ea; color: #137333; }
+        .stat-expense { background: #fce8e6; color: #c5221f; }
+        .stat-balance { background: #e8f0fe; color: #1a73e8; }
+        .stat-item span { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
+        .stat-item strong { font-size: 1.4rem; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 10px 12px; border: 1px solid #e4e6eb; text-align: left; }
+        th { background-color: #1877f2; color: white; font-weight: 600; }
+        .tag-thu { color: #137333; font-weight: bold; }
+        .tag-chi { color: #c5221f; font-weight: bold; }
+
+        .form-section, .logs-section { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.95rem; }
+        textarea { width: 100%; padding: 12px; border: 1px solid #ccd0d5; border-radius: 6px; font-size: 1rem; resize: vertical; }
+        
+        .preview-box { margin-bottom: 15px; padding: 12px; background: #fffbe6; border: 1px solid #ffe58f; border-radius: 6px; font-size: 0.9rem; }
+
+        button { background: #42b72a; color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-size: 1rem; font-weight: bold; width: 100%; }
+        button:hover { background: #36a420; }
+        
+        .log-item { border-left: 5px solid #1877f2; padding: 15px; background: #fff; margin-bottom: 10px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); position: relative; }
+        .log-work { font-size: 0.95rem; line-height: 1.4; margin-bottom: 8px; }
+        .btn-delete { position: absolute; right: 12px; top: 12px; background: #e41e3f; color: white; border: none; padding: 4px 8px; font-size: 0.75rem; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Nhật Ký & Bảng Thu Chi Tự Động</h1>
+
+    <div class="summary-card">
+        <h2>Bảng Tổng Kết Thu Chi (Đã sắp xếp từ sớm đến muộn)</h2>
+        <div class="stats">
+            <div class="stat-item stat-income">
+                <span>TỔNG THU</span>
+                <strong id="totalIncome">0 VNĐ</strong>
+            </div>
+            <div class="stat-item stat-expense">
+                <span>TỔNG CHI</span>
+                <strong id="totalExpense">0 VNĐ</strong>
+            </div>
+            <div class="stat-item stat-balance">
+                <span>SỐ DƯ</span>
+                <strong id="totalBalance">0 VNĐ</strong>
+            </div>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 30%;">Thời Gian</th>
+                    <th style="width: 40%;">Nội Dung Chi Tiết</th>
+                    <th style="width: 15%;">Khoản Thu</th>
+                    <th style="width: 15%;">Khoản Chi</th>
+                </tr>
+            </thead>
+            <tbody id="financeTableBody"></tbody>
+        </table>
+    </div>
+
+    <div class="form-section">
+        <h2>Nhập Nhật Ký Mới</h2>
+        <form id="logForm">
+            <div class="form-group">
+                <label for="work">Nhập dòng nhật ký:</label>
+                <textarea id="work" rows="3" required placeholder="Ví dụ: ăn sáng lúc 8h hết 20k, trà đá lúc 7h20 hết 10k..."></textarea>
+            </div>
+            <div id="previewArea" class="preview-box" style="display: none;">
+                <div style="font-weight: bold; color: #856404; margin-bottom: 5px;">💡 Xem trước kết quả bóc tách:</div>
+                <div id="previewDetails"></div>
+            </div>
+            <button type="submit">Lưu Nhập Liệu</button>
+        </form>
+    </div>
+
+    <div class="logs-section">
+        <h2>Lịch Sử Nhập Liệu Nguyên Văn</h2>
+        <div id="logsContainer"></div>
+    </div>
+</div>
+
+<script>
+    let logs = JSON.parse(localStorage.getItem('smart_finance_v6')) || [];
+
+    const incomeKeywords = ['thu', 'nhận', 'nhan', 'chạy xe', 'chay xe', 'lương', 'luong', 'được', 'duoc', 'khách trả', 'khach tra', 'tip', 'bán', 'ban'];
+
+    function parseText(text) {
+        let details = [];
+        const sentences = text.split(/[,;\n]/);
+
+        sentences.forEach(sentence => {
+            let raw = sentence.trim();
+            if (!raw) return;
+
+            let workingText = raw;
+            let hourStr = '';
+            let minutesFromMidnight = 0; // Dùng để quy đổi ra số phút tính từ 00:00 dùng cho việc sắp xếp
+
+            // 1.1 Khung giờ: "8h - 9h", "8h20 - 9h30"
+            const rangeTimeMatch = workingText.match(/(?:từ\s*)?(\d{1,2})(?:h|:|giờ)(\d{1,2})?\s*(?:-|–|đến|to)\s*(\d{1,2})(?:h|:|giờ)(\d{1,2})?/i);
+
+            if (rangeTimeMatch) {
+                let h1 = parseInt(rangeTimeMatch[1]);
+                let m1 = rangeTimeMatch[2] ? parseInt(rangeTimeMatch[2]) : 0;
+                let h2 = parseInt(rangeTimeMatch[3]);
+                let m2 = rangeTimeMatch[4] ? parseInt(rangeTimeMatch[4]) : 0;
+
+                hourStr = `${h1}h${m1 ? String(m1).padStart(2, '0') : ''} - ${h2}h${m2 ? String(m2).padStart(2, '0') : ''}`;
+                minutesFromMidnight = h1 * 60 + m1; // Lấy mốc bắt đầu để xếp hàng
+                workingText = workingText.replace(rangeTimeMatch[0], ' ');
+            } else {
+                // 1.2 Một mốc giờ: "lúc 8h", "7h20", "8h sáng"
+                const singleTimeMatch = workingText.match(/(?:lúc\s*)?(\d{1,2})\s*(?:h|:|giờ)\s*(\d{1,2})?(?:\s*(sáng|trưa|chiều|tối))?/i);
+                if (singleTimeMatch) {
+                    let h = parseInt(singleTimeMatch[1]);
+                    let m = singleTimeMatch[2] ? parseInt(singleTimeMatch[2]) : 0;
+                    let session = singleTimeMatch[3] ? singleTimeMatch[3].toLowerCase() : '';
+
+                    if ((session === 'chiều' || session === 'tối') && h < 12) h += 12;
+
+                    hourStr = `${h}h${m ? String(m).padStart(2, '0') : ''}`;
+                    minutesFromMidnight = h * 60 + m;
+                    workingText = workingText.replace(singleTimeMatch[0], ' ');
+                } else {
+                    const now = new Date();
+                    let h = now.getHours();
+                    let m = now.getMinutes();
+                    hourStr = `${h}h${String(m).padStart(2, '0')}`;
+                    minutesFromMidnight = h * 60 + m;
+                }
+            }
+
+            const d = new Date();
+            const dayStr = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+            const fullTimeString = `${hourStr} ngày ${dayStr}`;
+
+            // Bóc tách số tiền
+            let amount = 0;
+            const moneyMatch = workingText.match(/(\d+(?:[\.,]\d+)?)\s*(k|ngàn|ngand|tr|triệu|đ|d|vnd)?/i);
+
+            if (moneyMatch) {
+                let num = parseFloat(moneyMatch[1].replace(',', '.'));
+                let unit = moneyMatch[2] ? moneyMatch[2].toLowerCase() : '';
+
+                if (unit === 'k' || unit === 'ngàn' || unit === 'ngand' || (!unit && num < 1000)) {
+                    num *= 1000;
+                } else if (unit === 'tr' || unit === 'triệu') {
+                    num *= 1000000;
+                }
+                amount = num;
+                workingText = workingText.replace(moneyMatch[0], ' ');
+            }
+
+            // Làm sạch nội dung
+            let cleanContent = workingText
+                .replace(/\b(hết|được|gia|giá|tiền|lúc|từ)\b/gi, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            if (!cleanContent) cleanContent = raw;
+
+            const lowerRaw = raw.toLowerCase();
+            const isIncome = incomeKeywords.some(kw => lowerRaw.includes(kw));
+            const type = isIncome ? 'thu' : 'chi';
+
+            if (amount > 0) {
+                details.push({
+                    time: fullTimeString,
+                    minutes: minutesFromMidnight,
+                    content: cleanContent,
+                    amount: amount,
+                    type: type
+                });
+            }
+        });
+
+        return details;
+    }
+
+    // Preview real-time
+    document.getElementById('work').addEventListener('input', function(e) {
+        const parsed = parseText(e.target.value);
+        const previewArea = document.getElementById('previewArea');
+        const previewDetails = document.getElementById('previewDetails');
+
+        if (parsed.length > 0) {
+            previewArea.style.display = 'block';
+            previewDetails.innerHTML = parsed.map(item => `
+                <div style="margin-bottom: 4px;">
+                    📌 <strong>Thời gian:</strong> ${item.time} | 
+                    <strong>Nội dung:</strong> "${item.content}" | 
+                    <strong>${item.type === 'thu' ? 'Khoản Thu' : 'Khoản Chi'}:</strong> 
+                    <span style="color:${item.type === 'thu' ? '#137333' : '#c5221f'}; font-weight:bold;">
+                        ${item.amount.toLocaleString('vi-VN')} VNĐ
+                    </span>
+                </div>
+            `).join('');
+        } else {
+            previewArea.style.display = 'none';
+        }
+    });
+
+    function saveData() {
+        localStorage.setItem('smart_finance_v6', JSON.stringify(logs));
+        render();
+    }
+
+    function addLog(work) {
+        const parsedDetails = parseText(work);
+        const newLog = {
+            id: Date.now(),
+            rawText: work,
+            details: parsedDetails
+        };
+        logs.unshift(newLog);
+        saveData();
+    }
+
+    function deleteLog(id) {
+        logs = logs.filter(log => log.id !== id);
+        saveData();
+    }
+
+    function render() {
+        const financeTableBody = document.getElementById('financeTableBody');
+        const logsContainer = document.getElementById('logsContainer');
+        
+        financeTableBody.innerHTML = '';
+        logsContainer.innerHTML = '';
+
+        let grandIncome = 0;
+        let grandExpense = 0;
+
+        // Gom tất cả các mục chi tiết từ mọi nhật ký ra thành 1 danh sách duy nhất
+        let allDetails = [];
+        logs.forEach(log => {
+            if (log.details && log.details.length > 0) {
+                allDetails = allDetails.concat(log.details);
+            }
+        });
+
+        // THUẬT TOÁN SẮP XẾP: Từ sớm nhất -> Muộn nhất theo phút trong ngày
+        allDetails.sort((a, b) => a.minutes - b.minutes);
+
+        // Hiển thị ra bảng theo thứ tự đã sắp xếp
+        allDetails.forEach(item => {
+            if (item.type === 'thu') grandIncome += item.amount;
+            else grandExpense += item.amount;
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="font-weight:bold; color:#1877f2;">${item.time}</td>
+                <td style="text-transform: capitalize;">${item.content}</td>
+                <td class="tag-thu">${item.type === 'thu' ? '+' + item.amount.toLocaleString('vi-VN') + ' đ' : '-'}</td>
+                <td class="tag-chi">${item.type === 'chi' ? '-' + item.amount.toLocaleString('vi-VN') + ' đ' : '-'}</td>
+            `;
+            financeTableBody.appendChild(tr);
+        });
+
+        // Hiển thị lịch sử nhập thô ở dưới
+        logs.forEach(log => {
+            const item = document.createElement('div');
+            item.className = 'log-item';
+            item.innerHTML = `
+                <div class="log-work">${log.rawText.replace(/\n/g, '<br>')}</div>
+                <button class="btn-delete" onclick="deleteLog(${log.id})">Xóa</button>
+            `;
+            logsContainer.appendChild(item);
+        });
+
+        document.getElementById('totalIncome').innerText = '+' + grandIncome.toLocaleString('vi-VN') + ' VNĐ';
+        document.getElementById('totalExpense').innerText = '-' + grandExpense.toLocaleString('vi-VN') + ' VNĐ';
+        
+        const balance = grandIncome - grandExpense;
+        const balanceEl = document.getElementById('totalBalance');
+        balanceEl.innerText = (balance >= 0 ? '+' : '') + balance.toLocaleString('vi-VN') + ' VNĐ';
+        balanceEl.style.color = balance >= 0 ? '#137333' : '#c5221f';
+    }
+
+    document.getElementById('logForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const work = document.getElementById('work').value;
+        if (!work.trim()) return;
+        
+        addLog(work);
+        
+        document.getElementById('work').value = '';
+        document.getElementById('previewArea').style.display = 'none';
+    });
+
+    render();
+</script>
+
+</body>
+</html>
